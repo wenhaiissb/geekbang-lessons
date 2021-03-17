@@ -29,6 +29,7 @@ public interface UserManagerMBean {
     void setPhoneNumber(String phoneNumber);
 
     // MBeanOperationInfo
+    @Override
     String toString();
 
     User getUser();

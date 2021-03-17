@@ -54,7 +54,7 @@ public class TestingListener implements ServletContextListener {
         transaction.begin();
         entityManager.persist(user);
         transaction.commit();
-        System.out.println(entityManager.find(User.class, user.getId()));
+//        System.out.println(entityManager.find(User.class, user.getId()));
     }
 
     @Override

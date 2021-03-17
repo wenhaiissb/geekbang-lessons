@@ -2,12 +2,16 @@ package org.geektimes.context;
 
 import org.geektimes.function.ThrowableAction;
 import org.geektimes.function.ThrowableFunction;
+import org.geektimes.projects.user.domain.User;
+import org.geektimes.projects.user.management.UserManager;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.annotation.Resource;
+import javax.management.*;
 import javax.naming.*;
 import javax.servlet.ServletContext;
+import java.lang.management.ManagementFactory;
 import java.lang.reflect.Modifier;
 import java.util.*;
 import java.util.logging.Logger;
@@ -64,7 +68,23 @@ public class ComponentContext {
         initEnvContext();
         instantiateComponents();
         initializeComponents();
+        initializeUserMBean();
     }
+
+    private void initializeUserMBean() {
+        // 获取平台 MBean Server
+        MBeanServer mBeanServer = ManagementFactory.getPlatformMBeanServer();
+        // 为 UserMXBean 定义 ObjectName
+        try {
+            ObjectName objectName = new ObjectName("org.geektimes.projects.user.management:type=User");
+            // 创建 UserMBean 实例
+            User user = new User();
+            mBeanServer.registerMBean(new UserManager(user), objectName);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
 
     /**
      * 实例化组件
