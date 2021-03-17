@@ -68,10 +68,10 @@ public class ComponentContext {
         initEnvContext();
         instantiateComponents();
         initializeComponents();
-        initializeUserMBean();
+        registerUserMBean();
     }
 
-    private void initializeUserMBean() {
+    private void registerUserMBean() {
         // 获取平台 MBean Server
         MBeanServer mBeanServer = ManagementFactory.getPlatformMBeanServer();
         // 为 UserMXBean 定义 ObjectName
