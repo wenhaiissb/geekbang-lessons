@@ -7,23 +7,20 @@ import org.eclipse.microprofile.config.spi.ConfigProviderResolver;
 import javax.servlet.ServletContext;
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletContextListener;
-import javax.servlet.annotation.WebListener;
 
 /**
  * 如何注册当前 ServletContextListener 实现
  *
  * @see ServletConfigInitializer
  */
-@WebListener
 public class ServletContextConfigInitializer implements ServletContextListener {
-
 
     @Override
     public void contextInitialized(ServletContextEvent servletContextEvent) {
         ServletContext servletContext = servletContextEvent.getServletContext();
         ServletContextConfigSource servletContextConfigSource = new ServletContextConfigSource(servletContext);
         // 获取当前 ClassLoader
-        ClassLoader classLoader = servletContext.getClassLoader();
+        ClassLoader classLoader = this.getClass().getClassLoader();
         ConfigProviderResolver configProviderResolver = ConfigProviderResolver.instance();
         ConfigBuilder configBuilder = configProviderResolver.getBuilder();
         // 配置 ClassLoader
