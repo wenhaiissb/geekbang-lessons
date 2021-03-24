@@ -61,7 +61,7 @@ public class ClassicComponentContext implements ComponentContext {
         ClassicComponentContext.servletContext = servletContext;
         servletContext.setAttribute(CONTEXT_NAME, this);
         // 获取当前 ServletContext（WebApp）ClassLoader
-        this.classLoader = servletContext.getClassLoader();
+        this.classLoader = this.getClass().getClassLoader();
         initEnvContext();
         instantiateComponents();
         initializeComponents();
@@ -277,7 +277,7 @@ public class ClassicComponentContext implements ComponentContext {
 
     private void initClassLoader() {
         // 获取当前 ServletContext（WebApp）ClassLoader
-        this.classLoader = servletContext.getClassLoader();
+        this.classLoader = getClass().getClassLoader();
     }
 
     @Override
