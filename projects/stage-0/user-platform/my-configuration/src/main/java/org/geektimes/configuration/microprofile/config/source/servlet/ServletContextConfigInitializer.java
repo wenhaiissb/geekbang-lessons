@@ -7,12 +7,14 @@ import org.eclipse.microprofile.config.spi.ConfigProviderResolver;
 import javax.servlet.ServletContext;
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletContextListener;
+import javax.servlet.annotation.WebListener;
 
 /**
  * 如何注册当前 ServletContextListener 实现
  *
  * @see ServletConfigInitializer
  */
+@WebListener
 public class ServletContextConfigInitializer implements ServletContextListener {
 
 

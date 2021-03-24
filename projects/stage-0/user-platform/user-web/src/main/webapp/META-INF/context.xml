@@ -49,8 +49,4 @@
 	<!-- Tomcat JNDI 配置 -->
 	<Environment name="maxValue" value="12"
 				 type="java.lang.Integer" override="false"/>
-<<<<<<< HEAD
-
-=======
->>>>>>> 0cab736c56897ddd127da401bc56c111976d9578
 </Context>

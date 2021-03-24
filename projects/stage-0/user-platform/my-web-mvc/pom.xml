@@ -36,7 +36,7 @@
 
         <dependency>
             <groupId>org.geekbang.projects</groupId>
-            <artifactId>user-web</artifactId>
+            <artifactId>my-dependency-injection</artifactId>
             <version>${revision}</version>
         </dependency>
     </dependencies>

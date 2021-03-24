@@ -24,7 +24,7 @@ import java.util.*;
 
 import static java.util.Arrays.*;
 import static org.apache.commons.lang.StringUtils.*;
-import static org.geektimes.context.ComponentContext.*;
+import static org.geektimes.context.ClassicComponentContext.*;
 
 public class FrontControllerServlet extends HttpServlet {
 

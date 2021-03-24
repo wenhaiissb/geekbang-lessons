@@ -11,6 +11,7 @@
         <param-value>user-web</param-value>
     </context-param>
 
+
     <!-- 请确保这个 Listener 放置在首位 -->
     <listener>
         <listener-class>org.geektimes.projects.user.web.listener.ComponentContextInitializerListener</listener-class>

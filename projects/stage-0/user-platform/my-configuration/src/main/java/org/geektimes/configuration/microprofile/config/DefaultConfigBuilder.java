@@ -16,6 +16,10 @@ public class DefaultConfigBuilder implements ConfigBuilder {
 
     private final Converters converters;
 
+    public DefaultConfigBuilder() {
+        this(Thread.currentThread().getContextClassLoader());
+    }
+
     public DefaultConfigBuilder(ClassLoader classLoader) {
         this.configSources = new ConfigSources(classLoader);
         converters = new Converters(classLoader);

@@ -38,11 +38,7 @@ public class TestingListener implements ServletContextListener {
                 + servletContext.getInitParameter(propertyName));
     }
 
-<<<<<<< HEAD
-    private void testPropertyFromJNDI(ComponentContext context) {
-=======
     private void testPropertyFromJNDI(ClassicComponentContext context) {
->>>>>>> 0cab736c56897ddd127da401bc56c111976d9578
         String propertyName = "maxValue";
         logger.info("JNDI Property[" + propertyName + "] : "
                 + context.lookupComponent(propertyName));
