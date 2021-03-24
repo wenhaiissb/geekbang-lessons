@@ -27,7 +27,7 @@ public class UserServiceImpl implements UserService {
 //        EntityTransaction transaction = entityManager.getTransaction();
 //        transaction.begin();
         Set<ConstraintViolation<User>> validate = validator.validate(user);
-        if (validate.size()>0) {
+        if (validate.size() > 0) {
             StringBuilder errorMsg = new StringBuilder();
             for (ConstraintViolation<User> userConstraintViolation : validate) {
                 errorMsg.append(userConstraintViolation.getMessage()).append("，");
