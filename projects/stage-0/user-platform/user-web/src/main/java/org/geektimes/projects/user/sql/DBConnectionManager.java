@@ -1,5 +1,6 @@
 package org.geektimes.projects.user.sql;
 
+import org.geektimes.configuration.microprofile.config.annotation.Value;
 import org.geektimes.projects.user.domain.User;
 
 import javax.annotation.PostConstruct;
@@ -25,6 +26,9 @@ public class DBConnectionManager { // JNDI Component
 
     @Resource(name = "bean/EntityManager")
     private EntityManager entityManager;
+
+    @Value("userName")
+    private String userName;
 
     @PostConstruct
     public void init() {

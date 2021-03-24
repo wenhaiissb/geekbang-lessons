@@ -1,6 +1,10 @@
 package org.geektimes.web.mvc;
 
 import org.apache.commons.lang.StringUtils;
+import org.eclipse.microprofile.config.Config;
+import org.eclipse.microprofile.config.spi.ConfigProviderResolver;
+import org.eclipse.microprofile.config.spi.ConfigSource;
+import org.geektimes.configuration.microprofile.config.annotation.Value;
 import org.geektimes.context.ComponentContext;
 import org.geektimes.web.mvc.controller.Controller;
 import org.geektimes.web.mvc.controller.PageController;
@@ -24,6 +28,7 @@ import java.util.*;
 
 import static java.util.Arrays.*;
 import static org.apache.commons.lang.StringUtils.*;
+import static org.geektimes.configuration.microprofile.config.source.servlet.ServletContextConfigInitializer.*;
 import static org.geektimes.context.ClassicComponentContext.*;
 
 public class FrontControllerServlet extends HttpServlet {
@@ -55,19 +60,22 @@ public class FrontControllerServlet extends HttpServlet {
      */
     private void initHandleMethods(ServletContext servletContext) {
         ComponentContext componentContext = (ComponentContext)servletContext.getAttribute(CONTEXT_NAME);
+        ConfigProviderResolver resolver = (ConfigProviderResolver)servletContext.getAttribute(CONFIG_RESOLVER_NAME);
+        Config config = resolver.getConfig();
         for (Controller controller : ServiceLoader.load(Controller.class)) {
             Class<?> controllerClass = controller.getClass();
             Path pathFromClass = controllerClass.getAnnotation(Path.class);
 
             for (Field field : controllerClass.getDeclaredFields()) {
-                Resource resource = field.getAnnotation(Resource.class);
-                if (resource != null) {
-                    field.setAccessible(true);
-                    try {
-                        field.set(controller, componentContext.getComponent(resource.name()));
-                    } catch (IllegalAccessException e) {
-                        e.printStackTrace();
-                    }
+                resourceAnnotationProcessor(componentContext, controller, field);
+                Value value = field.getAnnotation(Value.class);
+                if (value != null) {
+                    Iterable<ConfigSource> configSources = config.getConfigSources();
+                    configSources.forEach(c ->
+                            {
+                                String value1 = c.getValue(value.value());
+                            }
+                    );
                 }
 
             }
@@ -84,6 +92,18 @@ public class FrontControllerServlet extends HttpServlet {
                 handleMethodInfoMapping.put(requestPath, new HandlerMethodInfo(requestPath, method, supportedHttpMethods));
             }
             controllersMapping.put(requestPath, controller);
+        }
+    }
+
+    private void resourceAnnotationProcessor(ComponentContext componentContext, Controller controller, Field field) {
+        Resource resource = field.getAnnotation(Resource.class);
+        if (resource != null) {
+            field.setAccessible(true);
+            try {
+                field.set(controller, componentContext.getComponent(resource.name()));
+            } catch (IllegalAccessException e) {
+                e.printStackTrace();
+            }
         }
     }
 

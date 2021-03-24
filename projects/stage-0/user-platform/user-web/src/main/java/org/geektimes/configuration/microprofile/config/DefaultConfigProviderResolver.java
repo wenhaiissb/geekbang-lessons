@@ -5,12 +5,19 @@ import org.eclipse.microprofile.config.spi.ConfigBuilder;
 import org.eclipse.microprofile.config.spi.ConfigProviderResolver;
 
 import java.util.Iterator;
+import java.util.Map;
 import java.util.ServiceLoader;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class DefaultConfigProviderResolver extends ConfigProviderResolver {
+    private Map<ClassLoader, Config> map = new ConcurrentHashMap<>();
 
     @Override
     public Config getConfig() {
+        Config config = map.get(this.getClass().getClassLoader());
+        if (config != null) {
+            return config;
+        }
         return getConfig(null);
     }
 
@@ -36,7 +43,7 @@ public class DefaultConfigProviderResolver extends ConfigProviderResolver {
 
     @Override
     public void registerConfig(Config config, ClassLoader classLoader) {
-
+        this.map.put(classLoader, config);
     }
 
     @Override

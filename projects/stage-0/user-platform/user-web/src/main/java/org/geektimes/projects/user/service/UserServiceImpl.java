@@ -19,8 +19,8 @@ public class UserServiceImpl implements UserService {
     @Resource(name = "bean/Validator")
     private Validator validator;
 
-    @Override
     // 默认需要事务
+    @Override
     @LocalTransactional
     public boolean register(User user) {
         // before process

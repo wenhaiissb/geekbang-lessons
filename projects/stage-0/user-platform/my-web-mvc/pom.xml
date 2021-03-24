@@ -39,5 +39,10 @@
             <artifactId>my-dependency-injection</artifactId>
             <version>${revision}</version>
         </dependency>
+        <dependency>
+            <groupId>org.geekbang.projects</groupId>
+            <artifactId>my-configuration</artifactId>
+            <version>${revision}</version>
+        </dependency>
     </dependencies>
 </project>
