@@ -1,6 +1,7 @@
 package org.geektimes.rest;
 
 import org.geektimes.rest.client.DefaultVariantListBuilder;
+import org.geektimes.rest.core.DefaultHeaderDelegate;
 import org.geektimes.rest.core.DefaultResponseBuilder;
 import org.geektimes.rest.core.DefaultUriBuilder;
 
@@ -31,7 +32,7 @@ public class DefaultRuntimeDelegate extends RuntimeDelegate {
 
     @Override
     public <T> HeaderDelegate<T> createHeaderDelegate(Class<T> type) throws IllegalArgumentException {
-        return null;
+        return new DefaultHeaderDelegate(type);
     }
 
     @Override
