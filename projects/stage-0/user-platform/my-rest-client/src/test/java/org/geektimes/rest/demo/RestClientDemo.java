@@ -25,7 +25,7 @@ public class RestClientDemo {
         Response response = client
                 .target("http://127.0.0.1:8080/user")      // WebTarget
                 .request()
-                .header("Content-Type",APPLICATION_JSON) //  Invocation.Builder
+                .header("Content-Type", APPLICATION_JSON) //  Invocation.Builder
                 .post(entity);                                     //  Response
 
         User user = response.readEntity(User.class);
