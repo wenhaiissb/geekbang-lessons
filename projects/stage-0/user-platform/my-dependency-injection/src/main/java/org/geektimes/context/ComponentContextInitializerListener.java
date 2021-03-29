@@ -1,5 +1,6 @@
 package org.geektimes.context;
 
+
 import javax.servlet.ServletContext;
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletContextListener;
@@ -21,8 +22,8 @@ public class ComponentContextInitializerListener implements ServletContextListen
 
     @Override
     public void contextDestroyed(ServletContextEvent sce) {
-//        ComponentContext context = ComponentContext.getInstance();
-//        context.destroy();
+        ComponentContext context = ClassicComponentContext.getInstance();
+        context.destroy();
     }
 
 }

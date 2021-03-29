@@ -17,11 +17,13 @@ public abstract class MapBasedConfigSource implements ConfigSource {
     private final int ordinal;
 
     private  Map<String, String> source;
+    private final Map<String, String> configData;
 
     protected MapBasedConfigSource(String name, int ordinal) {
         this.name = name;
         this.ordinal = ordinal;
 
+        this.configData = new HashMap<>();
     }
 
     /**
@@ -60,12 +62,12 @@ public abstract class MapBasedConfigSource implements ConfigSource {
 
     @Override
     public Set<String> getPropertyNames() {
-        return source.keySet();
+        return configData.keySet();
     }
 
     @Override
     public String getValue(String propertyName) {
-        return source.get(propertyName);
+        return configData.get(propertyName);
     }
 
     public void setSource(Map<String, String> source) {
