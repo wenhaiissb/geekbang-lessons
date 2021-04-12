@@ -34,6 +34,12 @@
             <version>${revision}</version>
         </dependency>
 
+        <dependency>
+            <groupId>org.geekbang.projects</groupId>
+            <artifactId>my-cache</artifactId>
+            <version>${revision}</version>
+        </dependency>
+
         <!-- Servlet API -->
         <dependency>
             <groupId>javax.servlet</groupId>
@@ -101,10 +107,13 @@
         </dependency>
 
         <!-- Testing -->
+<<<<<<< HEAD
         <dependency>
             <groupId>org.jolokia</groupId>
             <artifactId>jolokia-core</artifactId>
         </dependency>
+=======
+>>>>>>> 007777bd8a04509f41ac72771e2a04a64cc94dcd
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
