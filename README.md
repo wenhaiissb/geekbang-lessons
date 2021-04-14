@@ -68,3 +68,11 @@ public class User {
     }
 }
 ```
+
+## 第6周
+### 第一题：提供一套抽象 API 实现对象的序列化和反序列化 
+1. 定义顶级序列化接口（Serializer）
+2. 根据不同的序列化规则实现 Serializer 接口中 serialize 和 deserialize即可
+
+### 第二题：通过 Lettuce 实现一套 Redis CacheManager 以及 Cache
+测试用例：CachingTest#

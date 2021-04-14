@@ -44,8 +44,8 @@ public class JdkSerializationSerializer<T> implements Serializer<T>{
     @SuppressWarnings("unchecked")
     public T deserialize(byte[] bytes) throws SerializationException {
         T t;
-        try (ByteArrayInputStream outputStream = new ByteArrayInputStream(bytes);
-             ObjectInputStream objectInputStream = new ObjectInputStream(outputStream)
+        try (ByteArrayInputStream inputStream = new ByteArrayInputStream(bytes);
+             ObjectInputStream objectInputStream = new ObjectInputStream(inputStream)
         ) {
             t = (T) objectInputStream.readObject();
         } catch (Exception e) {
