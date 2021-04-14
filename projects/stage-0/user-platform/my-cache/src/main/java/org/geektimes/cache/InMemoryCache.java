@@ -17,6 +17,8 @@
 package org.geektimes.cache;
 
 
+import org.geektimes.cache.serializer.Serializer;
+
 import javax.cache.Cache;
 import javax.cache.CacheException;
 import javax.cache.CacheManager;
@@ -36,7 +38,10 @@ public class InMemoryCache<K, V> extends AbstractCache<K, V> {
     private final Map<K, ExpirableEntry<K, V>> cache;
 
     public InMemoryCache(CacheManager cacheManager, String cacheName, Configuration<K, V> configuration) {
-        super(cacheManager, cacheName, configuration);
+        this(cacheManager, cacheName, configuration, null, null);
+    }
+    public InMemoryCache(CacheManager cacheManager, String cacheName, Configuration<K, V> configuration, Serializer keySerializer,Serializer valueSerializer) {
+        super(cacheManager, cacheName, configuration, keySerializer, valueSerializer);
         this.cache = new HashMap<>();
     }
 

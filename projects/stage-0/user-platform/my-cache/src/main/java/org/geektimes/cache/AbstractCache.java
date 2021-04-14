@@ -20,6 +20,8 @@ import org.geektimes.cache.event.CacheEntryEventPublisher;
 import org.geektimes.cache.integration.CompositeFallbackStorage;
 import org.geektimes.cache.integration.FallbackStorage;
 import org.geektimes.cache.processor.MutableEntryAdapter;
+import org.geektimes.cache.serializer.JdkSerializationSerializer;
+import org.geektimes.cache.serializer.Serializer;
 
 import javax.cache.Cache;
 import javax.cache.CacheException;
@@ -47,9 +49,9 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
 
-import static org.geektimes.cache.ExpirableEntry.requireKeyNotNull;
-import static org.geektimes.cache.ExpirableEntry.requireValueNotNull;
-import static org.geektimes.cache.configuration.ConfigurationUtils.immutableConfiguration;
+import static java.util.Objects.*;
+import static org.geektimes.cache.ExpirableEntry.*;
+import static org.geektimes.cache.configuration.ConfigurationUtils.*;
 import static org.geektimes.cache.event.GenericCacheEntryEvent.*;
 
 /**
@@ -72,13 +74,17 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
 
     protected final FallbackStorage fallbackStorage;
 
+    private final Serializer keySerializer;
+
+    private final Serializer valueSerializer;
+
     private final CacheEntryEventPublisher entryEventPublisher;
 
     private final Executor executor;
 
     private volatile boolean closed = false;
 
-    protected AbstractCache(CacheManager cacheManager, String cacheName, Configuration<K, V> configuration) {
+    protected AbstractCache(CacheManager cacheManager, String cacheName, Configuration<K, V> configuration, Serializer keySerializer, Serializer valueSerializer) {
         this.cacheManager = cacheManager;
         this.cacheName = cacheName;
         this.configuration = immutableConfiguration(configuration);
@@ -86,6 +92,8 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
         this.fallbackStorage = new CompositeFallbackStorage(cacheManager.getClassLoader());
         this.entryEventPublisher = new CacheEntryEventPublisher();
         this.executor = ForkJoinPool.commonPool();
+        this.keySerializer = keySerializer == null ? new JdkSerializationSerializer() : keySerializer;
+        this.valueSerializer = valueSerializer == null ? new JdkSerializationSerializer() : keySerializer;
         registerCacheEntryListenersFromConfiguration();
     }
 
@@ -996,5 +1004,27 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
         if (isClosed()) {
             throw new IllegalStateException("Current cache has been closed! No operation should be executed.");
         }
+    }
+
+
+    @SuppressWarnings("unchecked")
+    protected final byte[] rawKey(Object key) {
+        requireNonNull(key, "non null key required");
+        return keySerializer.serialize(key);
+    }
+
+    @SuppressWarnings("unchecked")
+    protected final byte[] rawValue(Object value) {
+        return valueSerializer.serialize(value);
+    }
+
+    @SuppressWarnings("unchecked")
+    protected final K deserializeKey(byte[] value) {
+        return (K) keySerializer.deserialize(value);
+    }
+
+    @SuppressWarnings("unchecked")
+    protected final V deserializeValue(byte[] value) {
+        return (V) valueSerializer.deserialize(value);
     }
 }

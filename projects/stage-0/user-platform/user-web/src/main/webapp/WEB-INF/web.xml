@@ -13,7 +13,7 @@
 
     <!-- 请确保这个 Listener 放置在首位 -->
     <listener>
-        <listener-class>org.geektimes.projects.user.web.listener.ComponentContextInitializerListener</listener-class>
+        <listener-class>org.geektimes.context.ComponentContextInitializerListener</listener-class>
     </listener>
 
     <listener>

@@ -107,13 +107,10 @@
         </dependency>
 
         <!-- Testing -->
-<<<<<<< HEAD
         <dependency>
             <groupId>org.jolokia</groupId>
             <artifactId>jolokia-core</artifactId>
         </dependency>
-=======
->>>>>>> 007777bd8a04509f41ac72771e2a04a64cc94dcd
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>

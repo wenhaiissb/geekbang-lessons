@@ -16,7 +16,7 @@ public class MessageProducerFactory implements ObjectFactory {
     public Object getObjectInstance(Object obj, Name name, Context nameCtx,
                                     Hashtable<?, ?> environment) throws Exception {
 
-        if (obj == null || !(obj instanceof Reference)) {
+        if (!(obj instanceof Reference)) {
             return null;
         }
 
@@ -39,9 +39,7 @@ public class MessageProducerFactory implements ObjectFactory {
         Destination destination = session.createQueue(queueName);
 
         // Create a MessageProducer from the Session to the Topic or Queue
-        MessageProducer producer = session.createProducer(destination);
-
-        return producer;
+        return session.createProducer(destination);
     }
 
     private String getAttribute(Reference reference, String attributeName) {

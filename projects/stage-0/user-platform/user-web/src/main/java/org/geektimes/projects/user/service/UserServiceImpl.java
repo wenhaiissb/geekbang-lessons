@@ -11,12 +11,9 @@ import java.util.Set;
 
 public class UserServiceImpl implements UserService {
 
-<<<<<<< HEAD
 
 
-=======
     // Java CDI
->>>>>>> 007777bd8a04509f41ac72771e2a04a64cc94dcd
     @Resource(name = "bean/EntityManager")
     private EntityManager entityManager;
 
