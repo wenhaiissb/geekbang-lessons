@@ -55,7 +55,7 @@ import static org.geektimes.cache.ExpirableEntry.requireValueNotNull;
 import static org.geektimes.cache.configuration.ConfigurationUtils.immutableConfiguration;
 import static org.geektimes.cache.configuration.ConfigurationUtils.mutableConfiguration;
 import static org.geektimes.cache.event.GenericCacheEntryEvent.*;
-import static org.geektimes.cache.management.ManagementUtils.registerCacheMXBeanIfRequired;
+import static org.geektimes.cache.management.ManagementUtils.registerMBeansIfRequired;
 
 /**
  * The abstract non-thread-safe implementation of {@link Cache}
@@ -107,8 +107,9 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
         this.keySerializer = keySerializer == null ? new JdkSerializationSerializer() : keySerializer;
         this.valueSerializer = valueSerializer == null ? new JdkSerializationSerializer() : keySerializer;
         registerCacheEntryListenersFromConfiguration();
-        registerCacheMXBeanIfRequired(this);
+        registerMBeansIfRequired(this, cacheStatistics);
     }
+
 
     /**
      * Determines if the {@link Cache} contains an entry for the specified key.
@@ -176,21 +177,30 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
         assertNotClosed();
         requireKeyNotNull(key);
         ExpirableEntry<K, V> entry = null;
+        V value = null;
+        long startTime = System.currentTimeMillis();
         try {
             entry = getEntry(key);
             if (handleExpiryPolicyForAccess(entry)) {
                 return null;
             }
+            // If cache missing and read-through enabled, try to load value by {@link CacheLoader}
+            if (entry == null && isReadThrough()) {
+                value = loadValue(key, true);
+            } else {
+                value = getValue(entry);
+            }
         } catch (Throwable e) {
             logger.severe(e.getMessage());
+        } finally {
+            if (value != null) {
+                cacheStatistics.cacheHits();
+            }
+            cacheStatistics.cacheGets();
+            cacheStatistics.cacheGetsTime(System.currentTimeMillis() - startTime);
         }
 
-        // If cache missing and read-through enabled, try to load value by {@link CacheLoader}
-        if (entry == null && isReadThrough()) {
-            return loadValue(key, true);
-        }
-
-        return getValue(entry);
+        return value;
     }
 
     /**
@@ -485,9 +495,9 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
                 entry = updateEntry(key, value);
             }
         } finally {
+            writeEntryIfWriteThrough(entry);
             cacheStatistics.cachePuts();
             cacheStatistics.cachePutsTime(System.currentTimeMillis() - startTime);
-            writeEntryIfWriteThrough(entry);
         }
     }
 
@@ -543,6 +553,7 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
         assertNotClosed();
         requireKeyNotNull(key);
         boolean removed = false;
+        long startTime = System.currentTimeMillis();
         try {
             ExpirableEntry<K, V> oldEntry = removeEntry(key);
             removed = oldEntry != null;
@@ -551,6 +562,8 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
             }
         } finally {
             deleteIfWriteThrough(key);
+            cacheStatistics.cacheRemovals();
+            cacheStatistics.cacheRemovesTime(System.currentTimeMillis() - startTime);
         }
         return removed;
     }
@@ -701,6 +714,7 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
         assertNotClosed();
         clearEntries();
         defaultFallbackStorage.destroy();
+        cacheStatistics.reset();
     }
 
     @Override
@@ -781,11 +795,6 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
     protected final boolean isStatisticsEnabled() {
         return configuration.isStatisticsEnabled();
     }
-
-    protected final boolean isManagementEnabled() {
-        return configuration.isManagementEnabled();
-    }
-
 
     private CacheStatistics resolveCacheStatistic() {
         return isStatisticsEnabled() ?
@@ -1038,6 +1047,7 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
             V value = entry.getValue();
             removeEntry(key);
             publishExpiredEvent(key, value);
+            cacheStatistics.cacheEvictions();
         }
 
         return expired;
