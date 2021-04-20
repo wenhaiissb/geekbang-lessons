@@ -19,6 +19,9 @@ package org.geektimes.cache;
 import org.geektimes.cache.event.CacheEntryEventPublisher;
 import org.geektimes.cache.integration.CompositeFallbackStorage;
 import org.geektimes.cache.integration.FallbackStorage;
+import org.geektimes.cache.management.CacheStatistics;
+import org.geektimes.cache.management.DummyCacheStatistics;
+import org.geektimes.cache.management.SimpleCacheStatistics;
 import org.geektimes.cache.processor.MutableEntryAdapter;
 import org.geektimes.cache.serializer.JdkSerializationSerializer;
 import org.geektimes.cache.serializer.Serializer;
@@ -26,10 +29,7 @@ import org.geektimes.cache.serializer.Serializer;
 import javax.cache.Cache;
 import javax.cache.CacheException;
 import javax.cache.CacheManager;
-import javax.cache.configuration.CacheEntryListenerConfiguration;
-import javax.cache.configuration.CompleteConfiguration;
-import javax.cache.configuration.Configuration;
-import javax.cache.configuration.Factory;
+import javax.cache.configuration.*;
 import javax.cache.event.CacheEntryEvent;
 import javax.cache.event.EventType;
 import javax.cache.expiry.Duration;
@@ -49,10 +49,13 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
 
-import static java.util.Objects.*;
-import static org.geektimes.cache.ExpirableEntry.*;
-import static org.geektimes.cache.configuration.ConfigurationUtils.*;
+import static java.util.Objects.requireNonNull;
+import static org.geektimes.cache.ExpirableEntry.requireKeyNotNull;
+import static org.geektimes.cache.ExpirableEntry.requireValueNotNull;
+import static org.geektimes.cache.configuration.ConfigurationUtils.immutableConfiguration;
+import static org.geektimes.cache.configuration.ConfigurationUtils.mutableConfiguration;
 import static org.geektimes.cache.event.GenericCacheEntryEvent.*;
+import static org.geektimes.cache.management.ManagementUtils.registerCacheMXBeanIfRequired;
 
 /**
  * The abstract non-thread-safe implementation of {@link Cache}
@@ -64,21 +67,27 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
 
     protected final Logger logger = Logger.getLogger(getClass().getName());
 
-    protected final CacheManager cacheManager;
+    private final CacheManager cacheManager;
 
-    protected final String cacheName;
+    private final String cacheName;
 
-    protected final CompleteConfiguration<K, V> configuration;
+    private final MutableConfiguration<K, V> configuration;
 
-    protected final ExpiryPolicy expiryPolicy;
+    private final ExpiryPolicy expiryPolicy;
 
-    protected final FallbackStorage fallbackStorage;
+    private final CacheLoader<K, V> cacheLoader;
+
+    private final CacheWriter<K, V> cacheWriter;
+
+    private final FallbackStorage defaultFallbackStorage;
 
     private final Serializer keySerializer;
 
     private final Serializer valueSerializer;
 
     private final CacheEntryEventPublisher entryEventPublisher;
+
+    private final CacheStatistics cacheStatistics;
 
     private final Executor executor;
 
@@ -87,14 +96,18 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
     protected AbstractCache(CacheManager cacheManager, String cacheName, Configuration<K, V> configuration, Serializer keySerializer, Serializer valueSerializer) {
         this.cacheManager = cacheManager;
         this.cacheName = cacheName;
-        this.configuration = immutableConfiguration(configuration);
-        this.expiryPolicy = getExpiryPolicy(this.configuration);
-        this.fallbackStorage = new CompositeFallbackStorage(cacheManager.getClassLoader());
+        this.configuration = mutableConfiguration(configuration);
+        this.expiryPolicy = resolveExpiryPolicy(getConfiguration());
+        this.defaultFallbackStorage = new CompositeFallbackStorage(getClassLoader());
+        this.cacheLoader = resolveCacheLoader(getConfiguration(), getClassLoader());
+        this.cacheWriter = resolveCacheWriter(getConfiguration(), getClassLoader());
         this.entryEventPublisher = new CacheEntryEventPublisher();
+        this.cacheStatistics = resolveCacheStatistic();
         this.executor = ForkJoinPool.commonPool();
         this.keySerializer = keySerializer == null ? new JdkSerializationSerializer() : keySerializer;
         this.valueSerializer = valueSerializer == null ? new JdkSerializationSerializer() : keySerializer;
         registerCacheEntryListenersFromConfiguration();
+        registerCacheMXBeanIfRequired(this);
     }
 
     /**
@@ -177,7 +190,7 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
             return loadValue(key, true);
         }
 
-        return entry == null ? null : entry.getValue();
+        return getValue(entry);
     }
 
     /**
@@ -259,9 +272,10 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
      */
     @Override
     public V getAndPut(K key, V value) {
-        Entry<K, V> entry = getEntry(key);
+        Entry<K, V> oldEntry = getEntry(key);
+        V oldValue = getValue(oldEntry);
         put(key, value);
-        return entry.getValue();
+        return oldValue;
     }
 
     /**
@@ -306,8 +320,9 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
     @Override
     public V getAndRemove(K key) {
         Entry<K, V> oldEntry = getEntry(key);
+        V oldValue = getValue(oldEntry);
         remove(key);
-        return oldEntry == null ? null : oldEntry.getValue();
+        return oldValue;
     }
 
     /**
@@ -355,11 +370,11 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
     @Override
     public V getAndReplace(K key, V value) {
         Entry<K, V> oldEntry = getEntry(key);
-        if (oldEntry != null) {
+        V oldValue = getValue(oldEntry);
+        if (oldValue != null) {
             put(key, value);
-            return oldEntry.getValue();
         }
-        return null;
+        return oldValue;
     }
 
     /**
@@ -413,6 +428,9 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
         assertNotClosed();
         // If no loader is configured for the cache, no objects will be loaded.
         if (!configuration.isReadThrough()) {
+            // FIXME: The specification does not mention that
+            // CompletionListener#onCompletion() method should be invoked or not.
+            completionListener.onCompletion();
             return;
         }
 
@@ -435,8 +453,8 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
             // the CompletionListener may be null
             if (completionListener != null) {
                 // completed exceptionally
-                if (e instanceof Exception) {
-                    completionListener.onException((Exception) e);
+                if (e instanceof Exception && e.getCause() instanceof Exception) {
+                    completionListener.onException((Exception) e.getCause());
                 } else {
                     completionListener.onCompletion();
                 }
@@ -458,6 +476,7 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
     public void put(K key, V value) {
         assertNotClosed();
         Entry<K, V> entry = null;
+        long startTime = System.currentTimeMillis();
         try {
             if (!containsKey(key)) {
                 // Put the new Cache.Entry
@@ -466,6 +485,8 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
                 entry = updateEntry(key, value);
             }
         } finally {
+            cacheStatistics.cachePuts();
+            cacheStatistics.cachePutsTime(System.currentTimeMillis() - startTime);
             writeEntryIfWriteThrough(entry);
         }
     }
@@ -679,6 +700,7 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
     public final void clear() {
         assertNotClosed();
         clearEntries();
+        defaultFallbackStorage.destroy();
     }
 
     @Override
@@ -686,7 +708,7 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
         if (!Configuration.class.isAssignableFrom(clazz)) {
             throw new IllegalArgumentException("The class must be inherited of " + Configuration.class.getName());
         }
-        return (C) immutableConfiguration(configuration);
+        return (C) immutableConfiguration(getConfiguration());
     }
 
     @Override
@@ -701,13 +723,7 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
 
     @Override
     public <T> T unwrap(Class<T> clazz) {
-        T value = null;
-        try {
-            value = clazz.newInstance();
-        } catch (InstantiationException | IllegalAccessException e) {
-            throw new RuntimeException(e);
-        }
-        return value;
+        return getCacheManager().unwrap(clazz);
     }
 
     @Override
@@ -722,10 +738,17 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
 
     @Override
     public final void close() {
+
+        // Closing a Cache signals to the CacheManager that produced or owns the Cache
+        // that it should no longer be managed.
+
         if (isClosed()) {
             return;
         }
         doClose();
+
+        //  At this point in time the CacheManager:
+
         closed = true;
     }
 
@@ -743,6 +766,10 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
 
     // Operations of CompleteConfiguration
 
+    protected final CompleteConfiguration<K, V> getConfiguration() {
+        return this.configuration;
+    }
+
     protected final boolean isReadThrough() {
         return configuration.isReadThrough();
     }
@@ -759,6 +786,11 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
         return configuration.isManagementEnabled();
     }
 
+
+    private CacheStatistics resolveCacheStatistic() {
+        return isStatisticsEnabled() ?
+                new SimpleCacheStatistics() : DummyCacheStatistics.INSTANCE;
+    }
 
     // Operations of Cache.Entry and ExpirableEntry
 
@@ -866,8 +898,46 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
 
     // Operations of CacheLoader and CacheWriter
 
+    protected CacheLoader<K, V> getCacheLoader() {
+        return this.cacheLoader;
+    }
+
+    protected CacheWriter<K, V> getCacheWriter() {
+        return this.cacheWriter;
+    }
+
+    private CacheLoader<K, V> resolveCacheLoader(CompleteConfiguration<K, V> configuration, ClassLoader classLoader) {
+
+        Factory<CacheLoader<K, V>> cacheLoaderFactory = configuration.getCacheLoaderFactory();
+        CacheLoader<K, V> cacheLoader = null;
+        if (cacheLoaderFactory != null) {
+            cacheLoader = cacheLoaderFactory.create();
+        }
+
+        if (cacheLoader == null) {
+            cacheLoader = this.defaultFallbackStorage;
+        }
+
+        return cacheLoader;
+    }
+
+    private CacheWriter<K, V> resolveCacheWriter(CompleteConfiguration<K, V> configuration, ClassLoader classLoader) {
+
+        Factory<CacheWriter<? super K, ? super V>> cacheWriterFactory = configuration.getCacheWriterFactory();
+        CacheWriter<K, V> cacheWriter = null;
+        if (cacheWriterFactory != null) {
+            cacheWriter = (CacheWriter<K, V>) cacheWriterFactory.create();
+        }
+
+        if (cacheWriter == null) {
+            cacheWriter = this.defaultFallbackStorage;
+        }
+
+        return cacheWriter;
+    }
+
     private V loadValue(K key) {
-        return (V) fallbackStorage.load(key);
+        return getCacheLoader().load(key);
     }
 
     private V loadValue(K key, boolean storedEntry) {
@@ -880,13 +950,13 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
 
     private void writeEntryIfWriteThrough(Entry<K, V> entry) {
         if (entry != null && isWriteThrough()) {
-            fallbackStorage.write(entry);
+            getCacheWriter().write(entry);
         }
     }
 
     private void deleteIfWriteThrough(K key) {
         if (isWriteThrough()) {
-            fallbackStorage.delete(key);
+            getCacheWriter().delete(key);
         }
     }
 
@@ -944,10 +1014,16 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
      */
     private boolean handleExpiryPolicy(ExpirableEntry<K, V> entry, Duration duration, boolean removedExpiredEntry) {
 
+        if (entry == null) {
+            return false;
+        }
+
         boolean expired = false;
 
-        if (duration != null) {
-            if (duration.isZero() || entry.isExpired()) {
+        if (entry.isExpired()) {
+            expired = true;
+        } else if (duration != null) {
+            if (duration.isZero()) {
                 expired = true;
             } else {
                 long timestamp = duration.getAdjustedTime(System.currentTimeMillis());
@@ -979,7 +1055,7 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
         return getDuration(expiryPolicy::getExpiryForUpdate);
     }
 
-    private ExpiryPolicy getExpiryPolicy(CompleteConfiguration<?, ?> configuration) {
+    private ExpiryPolicy resolveExpiryPolicy(CompleteConfiguration<?, ?> configuration) {
         Factory<ExpiryPolicy> expiryPolicyFactory = configuration.getExpiryPolicyFactory();
         if (expiryPolicyFactory == null) {
             expiryPolicyFactory = EternalExpiryPolicy::new;
@@ -998,8 +1074,12 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
         return duration;
     }
 
-
     // Other Operations
+
+    protected ClassLoader getClassLoader() {
+        return getCacheManager().getClassLoader();
+    }
+
     private void assertNotClosed() {
         if (isClosed()) {
             throw new IllegalStateException("Current cache has been closed! No operation should be executed.");
@@ -1026,5 +1106,8 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
     @SuppressWarnings("unchecked")
     protected final V deserializeValue(byte[] value) {
         return (V) valueSerializer.deserialize(value);
+    }
+    private static <K, V> V getValue(Entry<K, V> entry) {
+        return entry == null ? null : entry.getValue();
     }
 }
