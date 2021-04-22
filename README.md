@@ -76,3 +76,12 @@ public class User {
 
 ### 第二题：通过 Lettuce 实现一套 Redis CacheManager 以及 Cache
 测试用例：CachingTest#
+
+
+## 第7周
+
+### 首先启动 user-oauth 模块下的 Application 引导类
+
+### 在浏览器输入 http://localhost/oauth 如果授权能回调成功则会显示 token 信息。
+
+### 如果回调不成功则获取浏览器上面的 code?code=xxx，然后输入地址 http://localhost/code?code=xxx 获取 token 信息
